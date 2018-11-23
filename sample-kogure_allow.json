@@ -1,0 +1,4 @@
+{
+    "sample1": "/path/to/your/script/with/shebang/MyScript1.php",
+    "sample2": "/path/to/your/script/with/shebang/MyScript2.py"
+}

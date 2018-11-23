@@ -1,0 +1,526 @@
+#!/usr/bin/env php
+<?php
+/**
+ * KOGURE Daemon
+ * =============
+ * A daemon like CLI app to run your script in background.
+ *
+ * Define which script you allow to run, and then you can 'start', 'stop' and
+ * 'restart' them like so:
+ * 
+ *     $ kogure start MyScript1
+ *
+ * What this app does is simple. It runs your script with `nohup` if it's not
+ * already run. 
+ * 
+ * SETUP:
+ * ------
+ *   1. PLACE THIS APP SCRIPT ANYWHERE YOU WANT.
+ *        Placing it in a directory at $ENV path is preferred for convenience.  
+ *        So you don't need to `cd` every time or use the absolute path to run 
+ *        'kogure'.
+ *   2. EDIT THE PATH TO YOUR JSON FILE.
+ *        In the "User settings" section of this app, you'll find a 
+ *        "$path_file_json_allow" variable which defines the path to your JSON 
+ *        file. Change the path you prefer.
+ *   2. CHANGE MODE AS EXECUTABLE.
+ *        Such as `$ sudo chmod +x kogure`.
+ *   3. CREATE A JOSN FILE.
+ *        Create a JSON file in a path you specified above (STEP 2). You may copy
+ *        the sample JSON from the repository and rename it.
+ *   4. EDIT THE JSON FILE.
+ *        This JSON file defines which script you allow to run. The format are:
+ *      
+ *          {
+ *              "<name of script>": "<path of yourscript>",
+ *              "MyScript1": "/path/to/MyScript1.php",
+ *              "MyScript2": "/path/to/MyScript1.py",
+ *          }
+ * 
+ *        NOTE: Your script MUST have a valid shebang and set mode as executable.
+ *        Also if you want your script run like a service, you need to loop your
+ *        script endlessly.
+ *   5. RUN `kogure help` TO SEE WORKING.
+ *         If you didn't place `kogure` in to $ENV path, you need to change the
+ *         current directory to kogure's path and do `$ ./kogure help` or run
+ *         it with absolute path such as `/path/to/kogure help`.
+ *   6. RUN YOUR SCRIPT LIKE A SERVICE.
+ *
+ *         $ kogure start MyScript1
+ *
+ *   If you don't understand the above or how to, this script might be dangerous
+ *   for you or cause a problem, so I will not suggest to use it.
+ *
+ * For the latest version see:
+ * https://github.com/KEINOS/kogure
+ */
+
+chdir(dirname(__FILE__));
+
+/* [Constants] ============================================================== */
+
+const VER_APP   = '1.0.0-alpha(20181124)';
+const DIR_SEP   = DIRECTORY_SEPARATOR;
+const LOCKED    = true;
+const UNLOCKED  = false;
+const STATUS_OK = 0;
+const AS_STRICT = true;
+const AS_RETURN = true;
+const NOT_FOUND = false;
+const SUCCESS   = true;
+const FAILURE   = false;
+
+/* [User settings] ========================================================== */
+
+$path_file_json_allow = './kogure_allow.json';
+
+/* kogure_allow.json format:
+{
+    "name_script": "/path/to/script/file/with/shebang/",
+    "sample1": "/path/to/script/MyScript1"
+}
+*/
+
+/* [Main] =================================================================== */
+
+// Define first input argument allowed
+$types_arg1_allow = [
+    'start', 'stop', 'restart', 'status',
+    'help', '-h', '--help',
+    'list', '-l', '--list',
+];
+
+// Load allowed script name as second input argument and it's file path
+$types_arg2_allow = loadFileJsonListAllow('./kogure_allow.json');
+
+// Get input command argument
+$arg_1st = getArgInput1st();
+$arg_2nd = getArgInput2nd();
+
+try {
+    switch ($arg_1st) {
+        case 'help':
+        case '--help':
+        case '-h':
+            printHelp();
+            exit(STATUS_OK);
+        case 'list':
+        case '--list':
+        case '-l':
+            echo getListScriptsAllowed(), PHP_EOL;
+            break;
+        case 'start':
+            $path_file = getPathFileFromArg2($arg_2nd);
+            signalStart($path_file);
+            break;
+        case 'stop':
+            $path_file = getPathFileFromArg2($arg_2nd);
+            signalStop($path_file);
+            break;
+        case 'restart':
+            $path_file = getPathFileFromArg2($arg_2nd);
+            signalRestart($path_file);
+            break;
+        case 'status':
+            printStatus();
+            break;
+        default:
+            $msg = 'Undefined argument given.';
+            throw new \InvalidArgumentException($msg);
+    }
+} catch (Exception $e) {
+    dieMsg($e->getMessage(), __LINE__);
+}
+
+exit(STATUS_OK);
+
+/* [Functions] ============================================================== */
+
+/* ---------------------------------------------------------------------- [D] */
+
+function dieMsg($msg, $status = 0)
+{
+    $status = (int) $status;
+
+    if (! is_string($msg)) {
+        $msg = print_r($msg, AS_RETURN);
+    }
+
+    if (STATUS_OK === $status) {
+        echo $msg, PHP_EOL;
+        exit(STATUS_OK);
+    }
+
+    $num_line_called = getValue('line', debug_backtrace(), $status);
+    echo rtrim($msg), " (Thrown form line: {$num_line_called})", PHP_EOL;
+
+    exit($status);
+}
+
+/* ---------------------------------------------------------------------- [G] */
+
+function getArgInput1st()
+{
+    global $argv, $argc;
+
+    if (1 === $argc) {
+        dieMsg('Missing argument. See help.(-h, --help)', __LINE__);
+    }
+
+    $arg_1st = getValue(1, $argv);
+
+    if (! isInArgList1st($arg_1st)) {
+        $msg = 'Invalid 1st argument. See help. (-h, --help)';
+        dieMsg($msg, __LINE__);
+    }
+
+    return $arg_1st;
+}
+
+function getArgInput2nd()
+{
+    global $argv, $argc;
+
+    if (3 !== $argc) {
+        return '';
+    }
+
+    $arg_2nd = getValue(2, $argv);
+
+    if (! isInArgList2nd($arg_2nd)) {
+        dieMsg('Invalid 2nd argument. See help. (-h, --help)', __LINE__);
+    }
+
+    return $arg_2nd;
+}
+
+function getListAllowedArg1()
+{
+    global $types_arg1_allow;
+    return $types_arg1_allow;
+}
+
+function getListScriptsAllowed()
+{
+    return trim(implode(', ', getNamesScriptAvailable()));
+}
+
+function getNameAppSelf()
+{
+    global $argv;
+
+    return basename($argv[0]);
+}
+
+function getNamesScriptAvailable()
+{
+    global $types_arg2_allow;
+
+    return array_keys($types_arg2_allow);
+}
+
+function getPathFileFromArg2($key)
+{
+    global $types_arg2_allow;
+
+    $path_file = getValue($key, $types_arg2_allow, NOT_FOUND);
+
+    if (NOT_FOUND === $path_file) {
+        $msg = 'Invalid 2nd argument. See help. (-h, --help)';
+        dieMsg($msg, __LINE__);
+    }
+
+    if (! file_exists($path_file)) {
+        $msg = 'Invalid file path of the script.(File not found).';
+        dieMsg($msg, __LINE__);
+    }
+
+    return $path_file;
+}
+
+function getPID($path_file)
+{
+    $command  = "ps aux | grep {$path_file} | grep -v grep | ";
+    $command .= 'awk \'{ print $2 }\'';
+
+    return getValue('last_line', runCmd($command));
+}
+
+function getValue($key, array $array, $default = false)
+{
+    return isset($array[$key]) ? $array[$key] : $default;
+}
+
+function getVersionAppSelf()
+{
+    return VER_APP;
+}
+
+/* ---------------------------------------------------------------------- [H] */
+
+function hasFileDescriptorRedirect($string)
+{
+    $string = str_replace(' ', '', $string);
+
+    return (false === strpos($string, '2>&1')) ? false : true;
+}
+
+/* ---------------------------------------------------------------------- [I] */
+
+function isInArgList1st($value)
+{
+    $array = getListAllowedArg1();
+
+    return in_array($value, $array, AS_STRICT);
+}
+
+function isInArgList2nd($key)
+{
+    global $types_arg2_allow;
+
+    return array_key_exists($key, $types_arg2_allow);
+}
+
+function isFileLocked($path_file)
+{
+    static $fp;
+
+    $path_file = realpath($path_file);
+
+    if (! is_file($path_file)) {
+        throw new \RuntimeException('File to run not found.');
+    }
+
+    $fp = fopen($path_file, "r");
+
+    if (false === is_resource($fp)) {
+        throw new \RuntimeException("Unable open file.");
+    }
+
+    $wouldBlock = false;
+
+    if (false === flock($fp, LOCK_EX|LOCK_NB, $wouldBlock)) {
+        if ($wouldBlock) {
+            return LOCKED;
+        }
+
+        throw new \RuntimeException("Unable lock file.");
+    }
+
+    return UNLOCKED;
+}
+
+function isScriptRunning($path_file)
+{
+    return (LOCKED === isFileLocked($path_file));
+}
+
+/* ---------------------------------------------------------------------- [K] */
+
+function killPidScript($path_file)
+{
+    $command  = "ps aux | grep {$path_file} | grep -v grep | ";
+    $command .= 'awk \'{ print "kill -9", $2 }\' | sh';
+
+    $result = getValue('is_success', runCmd($command));
+
+    return $result;
+}
+
+/* ---------------------------------------------------------------------- [L] */
+
+function loadFileJsonListAllow($path_file_json)
+{
+
+    $path_file_json = realpath($path_file_json);
+        
+    if(! file_exists($path_file_json)){
+        $msg  = 'Error while loading json file. File not found at: ';
+        $msg .= $path_file_json;
+        dieMsg($msg, __LINE__);
+    }
+
+    $json = file_get_contents($path_file_json);
+    $list = json_decode($json, JSON_OBJECT_AS_ARRAY);
+    
+    if(null === $list){
+        $msg  = 'Error while loading json file. Invalid json format at: ';
+        $msg .= $path_file_json;
+        dieMsg($msg, __LINE__);
+    }
+    
+    foreach($list as $path_file_script){
+        if(! file_exists($path_file_script) || ! is_file($path_file_script)){
+            $msg  = 'Error while loading json file. Invalid script path at: ';
+            $msg .= $path_file_script;
+            dieMsg($msg, __LINE__);
+        }        
+    }
+
+    return $list;
+}
+
+/* ---------------------------------------------------------------------- [P] */
+
+function printHelp()
+{
+    $name_app_self    = getNameAppSelf();
+    $version_app_self = getVersionAppSelf();
+    $scripts_allowed  = getListScriptsAllowed();
+
+    echo <<<EOL
+
+{$name_app_self} {$version_app_self}
+
+'{$name_app_self}' is a daemon like command which runs your script in background.
+You can start, stop them and/or see their running status.
+
+USAGE:
+  {$name_app_self} <ARGS> <SCRIPT NAME>
+
+ARGS:
+  help, -h, --help
+      This help.
+
+  list, -l, --list
+      Lists the available script names to use.
+
+  start
+      Starts the script and returns the PID.
+      If the script is already running then returns it's PID.
+
+  status
+      Returns the current statuses and their PIDs.
+
+  stop
+      Stops the script.
+
+SCRIPT NAME:
+
+Name of the script to run. Only allowed scripts can be run.
+Allowed script names:
+
+  {$scripts_allowed}
+
+NOTE:
+
+Currently, to add a script for SCRIPT NAME, you need to edit the {$name_app_self} command's source code.
+
+The script must have a valid shebang and be runnable by just calling the script.
+
+{$name_app_self} Version {$version_app_self}
+
+EOL;
+}
+
+function printStatus()
+{
+    global $types_arg2_allow;
+    
+    foreach($types_arg2_allow as $name_script => $path_file){
+        $msg_status = 'Off';
+        if(LOCKED === isFileLocked($path_file)){
+            $pid_script = getPID($path_file);
+            $msg_status = "On (PID: {$pid_script})";
+        }
+        echo $name_script, "\t", $msg_status, PHP_EOL;
+    }
+}
+
+/* ---------------------------------------------------------------------- [R] */
+
+function runCmd($command)
+{
+    if (! hasFileDescriptorRedirect($command)) {
+        $command = $command . ' 2>&1';
+    }
+
+    $output     = [];
+    $return_var = 1;
+    $last_line  = exec($command, $output, $return_var);
+    $result     = (0 ===$return_var);
+
+    return [
+        'is_success' => $result,
+        'status'     => $return_var,
+        'output'     => $output,
+        'last_line'  => $last_line,
+    ];
+}
+
+function runCmdNohup($path_file)
+{
+    $path_file = realpath($path_file);
+
+    if (false === $path_file) {
+        throw new \RuntimeException('No file found to run.');
+    }
+
+    $command = 'nohup '. $path_file .' > /dev/null 2>&1 & echo $!';
+
+    $results = runCmd($command);
+
+    if (! getValue('is_success', $results)) {
+        $msg  = 'Error while running command.' . PHP_EOL;
+        $msg .= implode(PHP_EOL, getValue('output', $results));
+
+        throw new \RuntimeException($msg);
+    }
+
+    $pid = (int) getValue('last_line', $results);
+
+    return $pid;
+}
+
+/* ---------------------------------------------------------------------- [S] */
+
+function signalStart($path_file)
+{
+    if (isScriptRunning($path_file)) {
+        $pid = getPID($path_file);
+        echo 'Process is already running.', PHP_EOL;
+        echo 'PID: ', $pid, PHP_EOL;
+
+        return $pid ? SUCCESS : FAILURE;
+    }
+
+    $pid = runCmdNohup($path_file);
+    echo 'Process started.', PHP_EOL;
+    echo 'PID: ', $pid, PHP_EOL;
+
+    return $pid ? SUCCESS : FAILURE;
+}
+
+function signalStop($path_file)
+{
+    $pid = getPID($path_file);
+
+    if (empty($pid)) {
+        echo 'Process already stopped.', PHP_EOL;
+        return SUCCESS;
+    }
+
+    if (! killPidScript($path_file)) {
+        $msg = "Error while stopping process: {$pid}";
+        throw new \RuntimeException($msg);
+    }
+
+    echo "Process {$pid} stopped.", PHP_EOL;
+
+    return SUCCESS;
+}
+
+function signalRestart($path_file)
+{
+    if (! isScriptRunning($path_file)) {
+        return signalStart($path_file);
+    }
+
+    signalStop($path_file);
+
+    while (isScriptRunning($path_file)) {
+        sleep(1);
+    }
+
+    return signalStart($path_file);
+}
