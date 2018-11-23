@@ -14,7 +14,7 @@ already run.
 
 ## SETUP:
 
-1. PLACE THIS APP SCRIPT ANYWHERE YOU WANT.
+1. PLACE [THIS APP SCRIPT](https://github.com/KEINOS/kogure/blob/master/kogure) ANYWHERE YOU WANT.
 
     Placing it in a directory at $ENV path is preferred for convenience.  
     So you don't need to `cd` every time or use the absolute path to run 
@@ -33,7 +33,7 @@ already run.
 3. CREATE A JOSN FILE.
 
     Create a JSON file in a path you specified above (STEP 2). You may copy
-    the sample JSON from the repository and rename it.
+    the [sample JSON](https://github.com/KEINOS/kogure/blob/master/sample-kogure_allow.json) from the repository and rename it.
 
 4. EDIT THE JSON FILE.
 
