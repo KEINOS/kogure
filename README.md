@@ -40,9 +40,10 @@ MyScript3	On (PID: 65946)
     ```
     
     This means your script needs the below functions:
-        - Has a valid `shebang`.
-        - Runs in a loop.
-        - Does the normal termination processing when kill signal was received. 
+
+    - Has a valid `shebang`.
+    - Runs in a loop.
+    - Does the normal termination processing when kill signal was received. 
 
 ## SETUP:
 
