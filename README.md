@@ -52,20 +52,18 @@ MyScript3	On (PID: 65946)
     Placing it in a directory at `$ENV` path is preferred for convenience.  
     So you don't need to `cd` every time or use the absolute path to run 'kogure'.
 
-2. EDIT THE PATH OF JSON FILE IN THE APP SCRIPT.
-
-    In the "User settings" section of this app, you'll find a "`$path_file_json_allow`"  variable. This variable defines the path to your JSON file.
-    Change the path you prefer.
-
-3. CHANGE MODE AS EXECUTABLE.
+1. CHANGE MODE AS EXECUTABLE.
 
     Such as `$ sudo chmod +x kogure`.
 
-5. CREATE A JOSN FILE.
+1. CREATE A JOSN FILE.
 
-    Create a JSON file in a path you specified above (STEP 2). You may copy the [sample JSON](https://github.com/KEINOS/kogure/blob/master/sample-kogure_allow.json) from the repository and rename it.
+    Place or create a JSON file in "./kogure" directory under user's home. You may copy the [sample JSON file](https://github.com/KEINOS/kogure/blob/master/sample-kogure_allow.json) from the repository and rename it.
+    ```
+    ~/.kogure/kogure_allow.json
+    ```
 
-6. EDIT THE JSON FILE.
+1. EDIT THE JSON FILE.
 
     This JSON file defines which script you allow to run. The format are:
 
@@ -81,16 +79,16 @@ MyScript3	On (PID: 65946)
     Also if you want your script run like a service, you need to loop your
     script endlessly.
 
-7. RUN `kogure help` TO SEE WORKING.
+1. RUN `kogure help` TO SEE WORKING.
     If you didn't place `kogure` in to $ENV path, you need to change the
     current directory to kogure's path and do `$ ./kogure help` or run
     it with absolute path such as `/path/to/kogure help`.
 
-8. RUN YOUR SCRIPT LIKE A SERVICE.
+1. RUN YOUR SCRIPT LIKE A SERVICE.
 
-```
-$ kogure start MyScript1
-```
+    ```
+    $ kogure start MyScript1
+    ```
 
 If you don't understand the above or how to, this script might be dangerous
  for you or cause a problem, so I will not suggest to use it.
