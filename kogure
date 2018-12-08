@@ -19,7 +19,7 @@
 
 /* [Constants] ============================================================== */
 
-const VER_APP        = '1.0.0-alpha(20181208)';
+const VER_APP        = '1.0.0-beta(20181209)';
 const NAME_FILE_JSON = 'kogure_allow.json'; // White list of allowed apps to run
 
 // aliases
