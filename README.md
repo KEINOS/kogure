@@ -90,6 +90,6 @@ MyScript3	On (PID: 65946)
     $ kogure start MyScript1
     ```
 
-If you don't understand the above or how to, this script might be dangerous
- for you or cause a problem, so I will not suggest to use it.
+If you don't understand the above then I apologize that my English wasn't good enough. =(
+Then this script might be dangerous for you or cause a problem, so I will not suggest to use it.
 
