@@ -1,8 +1,8 @@
 # KOGURE Daemon
 
-'Kogure' is a daemon like CLI command app which helps you run your script in background. 
+'Kogure' is a daemon like CLI command PHP script which helps you run your script in background. 
 
-This is a simple alternate command script in case you have no access to use `system.d` nor `init.d` or feel it's too much to use them.
+This is a simple alternate command in case you have no access to use `system.d` nor `init.d` or **feel lasy using `nohup` everytime**.
 
 What this app does is simple. It runs your script with `nohup` if it's not already run. And you can 'start', 'stop' and 'restart' them and/or see their running status.
 
@@ -80,6 +80,7 @@ MyScript3	On (PID: 65946)
     script endlessly.
 
 1. RUN `kogure help` TO SEE WORKING.
+
     If you didn't place `kogure` in to $ENV path, you need to change the
     current directory to kogure's path and do `$ ./kogure help` or run
     it with absolute path such as `/path/to/kogure help`.
@@ -89,7 +90,3 @@ MyScript3	On (PID: 65946)
     ```
     $ kogure start MyScript1
     ```
-
-If you don't understand the above then I apologize that my English wasn't good enough. =(
-Then this script might be dangerous for you or cause a problem, so I will not suggest to use it.
-
