@@ -4,7 +4,7 @@
 
 This is a simple alternate command in case you have no access to use `system.d` nor `init.d` or **feel lasy using `nohup` everytime**.
 
-What this app does is simple. It runs your script with `nohup` if it's not already run. And you can 'start', 'stop' and 'restart' them and/or see their running status.
+What this app does is simple. It runs your script with `nohup` if it's not already ran. And you can 'start', 'stop' and 'restart' them and/or see their running status.
 
 ## BASIC USAGE
 
